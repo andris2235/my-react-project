@@ -1,11 +1,11 @@
 import { Router } from "express"
 import streamRouter from "./streamRouter"
 
-
+import healthController from "../controllers/HealthController";
 
 const router = Router()
-
-router.use('/stream', streamRouter) 
+router.get('/api/ping', healthController.ping);
+router.use('/stream', streamRouter)
 
 
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useHeartbeat } from "../../hooks/useHeartbeat";       //!!HeartBeat
 import ZoomControl from "../../components/UI/CameraZoom/ZoomControl";
 import Joystick from "../../components/UI/Joystick/Joystick";
 import PresetStream from "../../components/UI/PresetStream/PresetStream";
@@ -50,6 +51,7 @@ const Home = () => {
   const [largeOperationIsPressed, setLargeOperationIsPressed] =
     useState<null | ClickType>(null);
   const [tvIsOn, setTvIsOn] = useState(false);
+  const { isOnline, lastPing, reconnect } = useHeartbeat(15000);  //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!HeartBeat
 
   const setCurrentPresetHandler = async (type: PresetTypes) => {
     const oldCurrent = { ...currentPreset };
@@ -165,6 +167,60 @@ const Home = () => {
 
   return (
     <div className={styles.wrapper}>
+      {/* Проверяем статус и пишем статус и соединение с сервером */}
+      <div style={{
+        position: 'fixed',
+        top: 10,
+        right: 10,
+        padding: '8px 12px',
+        backgroundColor: isOnline ? '#4CAF50' : '#f44336',
+        color: 'white',
+        borderRadius: '4px',
+        fontSize: '12px',
+        zIndex: 1000,
+        fontFamily: 'Arial, sans-serif'
+      }}>
+        {isOnline ? '🟢 Онлайн' : '🔴 Оффлайн'}
+        {lastPing && (
+          <div style={{ fontSize: '10px', marginTop: '2px' }}>
+            {lastPing.toLocaleTimeString()}
+          </div>
+        )}
+      </div>
+
+      {/* Модальное окно при потере связи */}
+      {!isOnline && (
+        <div style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          backgroundColor: 'rgba(0,0,0,0.9)',
+          color: 'white',
+          padding: '30px',
+          borderRadius: '12px',
+          textAlign: 'center',
+          zIndex: 1001,
+          minWidth: '300px',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.5)'
+        }}>
+          <h3 style={{ margin: '0 0 15px 0' }}>⚠️ Потеря связи с сервером</h3>
+          <p style={{ margin: '10px 0' }}>Попытка переподключения...</p>
+          <button
+            onClick={reconnect}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#2196F3',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            Переподключиться вручную
+          </button>
+        </div>
+      )}
       <div className={styles.managementBlock}>
         <div className={styles.tvManagement}>
           <div className={styles.tvManagement__left}>
