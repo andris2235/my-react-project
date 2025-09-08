@@ -50,7 +50,7 @@ app.use(ErrorHandlingMiddleware);
 const start = async () => {
   try {
     initFunc();
-    server.listen(port, async () => {
+    server.listen(port, "0.0.0.0", async () => {
       console.log(`Server is running on port ${port}`);
     });
     app.get("*", async (req, res) => {

@@ -32,7 +32,7 @@ export interface StreamConfig {
 
 function getFFmpegInputArgs(deviceId: number | string): string[] {
   const platform = os.platform();
-  const isPtz = deviceId === "/dev/Ptz_big" || "/dev/Ptz_small";
+  const isPtz = deviceId === "/dev/Ptz_big" || deviceId === "/dev/Ptz_small";
   if (platform === "darwin") {
     // macOS (avfoundation)
     return [
@@ -45,26 +45,26 @@ function getFFmpegInputArgs(deviceId: number | string): string[] {
       "-i",
       `${deviceId}`,
     ];
-  } else if (platform === "linux") {
-    // Linux (v4l2)
-    return [
-      "-f",
-      "v4l2",
-      "-framerate",
-      "15",
-      "-video_size",
-      "640x360",
-      "input_format",
-      isPtz ? "h264" : "yuyv422",
-      "-thread_queue_size",
-      "512",
-      "-i",
-      `${deviceId}`,
-    ];
-  } else {
-    throw new Error(`Платформа ${platform} не поддерживается`);
+    } else if (platform === "linux") {
+      // Linux (v4l2)
+      return [
+        "-f",
+        "v4l2",
+        "-framerate",
+        "15",
+        "-video_size",
+        "640x480",
+        // "input_format",
+        // isPtz ? "h264" : "yuyv422",
+        "-thread_queue_size",
+        "512",
+        "-i",
+        `${deviceId}`,
+      ];
+    } else {
+      throw new Error(`Платформа ${platform} не поддерживается`);
+    }
   }
-}
 
 export function createStream(app: Express, config: StreamConfig): void {
   try {

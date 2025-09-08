@@ -14,19 +14,19 @@ import { moveCamera, setPreset, setTvState, stopCamera } from "../../http/camera
 
 const presets: PresetItem[] = [
   {
-    text: "Эндоскоп 1, Эндоскоп 2, Большая операционная, Малая операционная",
+    text: "Большая/малая операционные Quad>",
     type: PresetTypes.first,
   },
   {
-    text: "Эндоскоп 1, Большая операционная",
+    text: "Большая операционная Preset2",
     type: PresetTypes.second,
   },
   {
-    text: "Эндоскоп 2, Малая операционная",
+    text: "Малая операционная Preset3",
     type: PresetTypes.third,
   },
   {
-    text: "Эндоскоп 1, Большая операционная, малая операционная",
+    text: "Большая операционная Preset4",
     type: PresetTypes.fourth,
   },
 ];
@@ -35,7 +35,7 @@ const Home = () => {
   const { setNotification } = notificationStore();
   const [deletingPreset, setDeletingPreset] = useState<null | PresetItem>(null);
   const [currentPreset, setCurrentPreset] = useState({
-    text: "Эндоскоп 1, Эндоскоп 2, Большая операционная, Малая операционная",
+    text: "Большая/малая операционные Quad",
     type: PresetTypes.first,
   });
   const [otherPresets, setOtherPresets] = useState<PresetItem[]>(
@@ -149,16 +149,16 @@ const Home = () => {
           type: "error",
           text: handlerAxiosError(error),
         });
-      } finally{
+      } finally {
         setTvSwitchDisabled(false)
       }
     },
     [setNotification]
   );
 
-  useEffect(()=>{
+  useEffect(() => {
     setTvValueHandler(true)
-    return ()=>{
+    return () => {
       setTvValueHandler(false)
     }
   }, [setTvValueHandler])
