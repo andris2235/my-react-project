@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useHeartbeat } from "../../hooks/useHeartbeat";       //!!HeartBeat
+import { useCameraQueue } from "../../hooks/useCameraQueue";
 import ZoomControl from "../../components/UI/CameraZoom/ZoomControl";
 import Joystick from "../../components/UI/Joystick/Joystick";
 import PresetStream from "../../components/UI/PresetStream/PresetStream";
@@ -53,6 +54,9 @@ const Home = () => {
   const [tvIsOn, setTvIsOn] = useState(false);
   const { isOnline, lastPing, reconnect } = useHeartbeat(15000);  //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!HeartBeat
 
+  const camera1Control = useCameraQueue("cam1"); //Создаем контроллеры для камер
+  const camera2Control = useCameraQueue("cam2");
+
   const setCurrentPresetHandler = async (type: PresetTypes) => {
     const oldCurrent = { ...currentPreset };
     const current = presets.find((i) => i.type === type);
@@ -83,62 +87,19 @@ const Home = () => {
     setPresetHandler()
   }, [setPresetHandler]);
 
-  const cameraZoomHandler = useCallback(
-    async (zoom: ZoomValues, cam: "cam1" | "cam2") => {
-      try {
-        if (zoom === "neutral") {
-          await stopCamera(cam);
-        } else {
-          await moveCamera(
-            { x: 0, z: zoom === "down" ? -0.5 : 0.5, y: 0 },
-            cam
-          );
-        }
-      } catch (error) {
-        console.log(error);
-        setNotification({
-          text: handlerAxiosError(error),
-          type: "error",
-          visible: true,
-        });
-      }
-    },
-    [setNotification]
-  );
+  useEffect(() => {
+    camera1Control.handleZoom(smallOperationZoom);
+  }, [smallOperationZoom, camera1Control.handleZoom]);
+  useEffect(() => {
+    camera2Control.handleZoom(largeOperationZoom);
+  }, [largeOperationZoom, camera2Control.handleZoom]);
+  useEffect(() => {
+    camera1Control.handleMove(smallOperationIsPressed);
+  }, [smallOperationIsPressed, camera1Control.handleMove]);
+  useEffect(() => {
+    camera2Control.handleMove(largeOperationIsPressed);
+  }, [largeOperationIsPressed, camera2Control.handleMove]);
 
-  const cameraMoveHandler = useCallback(
-    async (pressed: ClickType | null, cam: "cam1" | "cam2") => {
-      try {
-        if (!pressed) {
-          await stopCamera(cam);
-        } else {
-          await moveCamera(getCameraDelta(pressed), cam);
-        }
-      } catch (error) {
-        console.log(error);
-        setNotification({
-          text: handlerAxiosError(error),
-          type: "error",
-          visible: true,
-        });
-      }
-    },
-    [setNotification]
-  );
-
-  useEffect(() => {
-    cameraZoomHandler(smallOperationZoom, "cam1");
-  }, [smallOperationZoom, cameraZoomHandler]);
-  useEffect(() => {
-    cameraZoomHandler(largeOperationZoom, "cam2");
-  }, [largeOperationZoom, cameraZoomHandler]);
-
-  useEffect(() => {
-    cameraMoveHandler(smallOperationIsPressed, "cam1");
-  }, [smallOperationIsPressed, cameraMoveHandler]);
-  useEffect(() => {
-    cameraMoveHandler(largeOperationIsPressed, "cam2");
-  }, [largeOperationIsPressed, cameraMoveHandler]);
   const setTvValueHandler = useCallback(
     async (v: boolean) => {
       try {
