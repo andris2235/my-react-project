@@ -32,45 +32,75 @@ class OnvifController {
   private devices: Map<string, OnvifDevice> = new Map();
   private ready: Map<string, boolean> = new Map();
 
-  constructor(private cameras: CameraConfig[]) {}
+  constructor(private cameras: CameraConfig[]) { }
 
+  // ОБНОВЛЕННЫЙ initAll() - запускает retry для всех камер
   public async initAll() {
     try {
+      console.log(`[OnvifController] Initializing ${this.cameras.length} cameras...`);
+
       for (const cam of this.cameras) {
-        await this.initCamera(cam);
+        this.initCameraWithRetry(cam); // Запускаем async, не ждем
       }
-      return { success: true, message: "" };
+
+      return { success: true, message: "Camera initialization started" };
     } catch (error) {
       return errorHandler(error);
     }
   }
 
-  private async initCamera(config: CameraConfig): Promise<void> {
-    const device = new OnvifDevice({
-      xaddr: config.xaddr,
-      user: config.user,
-      pass: config.pass,
-    });
-
+  // НОВЫЙ метод с retry (заменяет старый initCamera)
+  private async initCameraWithRetry(config: CameraConfig, attempt: number = 1): Promise<void> {
     try {
-      await device.init();
+      console.log(`[Camera ${config.name}] Initializing... (attempt ${attempt})`);
+
+      const device = new OnvifDevice({
+        xaddr: config.xaddr,
+        user: config.user,
+        pass: config.pass,
+      });
+
+      // ⏱️ Инициализация с таймаутом 10 секунд
+      await Promise.race([
+        device.init(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Camera init timeout")), 10000)
+        )
+      ]);
+
+      // ✅ Успех!
       this.devices.set(config.name, device);
       this.ready.set(config.name, true);
-      logger.info(`Камера "${config.name}" инициализирована`);
+
+      logger.info(`Camera "${config.name}" initialized successfully`);
+      console.log(`✅ Camera ${config.name} initialized successfully`);
+
     } catch (err: any) {
-      logger.error(
-        `Ошибка инициализации камеры "${config.name}": ${err.message}`
-      );
+      // ❌ Ошибка - логируем и планируем retry
       this.ready.set(config.name, false);
+
+      logger.error(`Camera "${config.name}" initialization failed`, {
+        attempt,
+        error: err.message
+      });
+
+      console.error(`❌ Camera ${config.name} init failed (attempt ${attempt}):`, err.message);
+
+      // 🔄 Retry через 30 секунд
+      console.log(`🔄 Camera ${config.name} will retry in 30 seconds...`);
+      setTimeout(() => {
+        this.initCameraWithRetry(config, attempt + 1);
+      }, 30000);
     }
   }
+
 
   public async moveCamera(name: string, x: number, y: number, z: number) {
     const device = this.devices.get(name);
     if (!device || !this.ready.get(name)) {
       const errMsg = `Камера "${name}" не готова к движению`;
       logger.error(errMsg);
-      return {success: false, message: errMsg}
+      return { success: false, message: errMsg }
     }
     try {
       await device.ptzMove({ speed: { x, y, z } });
