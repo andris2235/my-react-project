@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState, useEffect } from 'react'; // ✅ ИСПРАВЛЕНО: Добавлен useEffect в импорты
 
 import { moveCamera, stopCamera } from '../http/cameraAPI';
 
@@ -9,30 +9,37 @@ import { getCameraDelta } from '../utils/func';
 
 // Описание одной команды камере
 interface CameraCommand {
-    type: 'move' | 'zoom' | 'stop';  // Тип команды  
-    data: any;                       // Данные команды (координаты, направление)
-    timestamp: number;               // Время создания команды
+    type: 'move' | 'zoom' | 'stop'; // Тип команды 
+    data: any; // Данные команды (координаты, направление)
+    timestamp: number; // Время создания команды
 }
 
 export const useCameraQueue = (cameraId: "cam1" | "cam2") => {
-    //  Очередь команд - массив команд, ожидающих выполнения
+    // Очередь команд - массив команд, ожидающих выполнения
     const commandQueue = useRef<CameraCommand[]>([]);
 
-    // Флаг "сейчас обрабатываем команду" - предотвращает параллельное выполнение
-    const isProcessing = useRef(false);
+    // ✅ Добавлено реактивное состояние для UI
+    const [isProcessing, setIsProcessing] = useState(false);
 
-    // ⏱Время последней выполненной команды - для дебага
+    // ✅ Внутренний ref для защиты от race conditions
+    const processingRef = useRef(false);
+
+    // ⏱️ Время последней выполненной команды - для дебага
     const lastCommandTime = useRef(0);
+
+    // ✅ ИСПРАВЛЕНО: Правильная типизация для браузерного setTimeout
+    const timeoutRef = useRef<number | null>(null);
 
     // ГЛАВНАЯ ФУНКЦИЯ - обработчик очереди команд
     const processQueue = useCallback(async () => {
-        // Если уже обрабатываем ИЛИ очередь пуста - выходим
-        if (isProcessing.current || commandQueue.current.length === 0) {
+        // Используем processingRef для race condition защиты
+        if (processingRef.current || commandQueue.current.length === 0) {
             return; // Ничего не делаем
         }
 
         // 🔒 Блокируем параллельную обработку
-        isProcessing.current = true;
+        processingRef.current = true;
+        setIsProcessing(true); // Обновляем UI состояние
 
         try {
             // 📤 Берем ПОСЛЕДНЮЮ команду из очереди (самую свежую)
@@ -84,16 +91,41 @@ export const useCameraQueue = (cameraId: "cam1" | "cam2") => {
             // НЕ бросаем ошибку дальше, чтобы не сломать интерфейс
 
         } finally {
-            // 🔓 В любом случае разблокируем обработку
-            isProcessing.current = false;
+            // ✅ Освобождаем оба флага
+            processingRef.current = false;
+            setIsProcessing(false); // Обновляем UI состояние
 
             // 🔄 Если накопились новые команды - обрабатываем их через 50мс
             if (commandQueue.current.length > 0) {
                 console.log(`[${cameraId}] В очереди еще ${commandQueue.current.length} команд`);
-                setTimeout(processQueue, 50); // Небольшая пауза между командами
+
+                // ✅ Защита от memory leaks - очищаем предыдущий timeout
+                if (timeoutRef.current) {
+                    clearTimeout(timeoutRef.current);
+                }
+
+                // ✅ ИСПРАВЛЕНО: setTimeout в браузере возвращает number
+                timeoutRef.current = window.setTimeout(() => {
+                    processQueue();
+                    timeoutRef.current = null; // Очищаем ref после выполнения
+                }, 50); // Небольшая пауза между командами
             }
         }
     }, [cameraId]);
+
+    // ✅ Cleanup effect для предотвращения memory leaks
+    useEffect(() => {
+        return () => {
+            // Очищаем активный timeout при unmount
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+                timeoutRef.current = null;
+            }
+            // Очищаем очередь команд
+            commandQueue.current = [];
+            processingRef.current = false;
+        };
+    }, []);
 
     // 📥 ФУНКЦИЯ добавления команды в очередь
     const queueCommand = useCallback((command: CameraCommand) => {
@@ -122,9 +154,9 @@ export const useCameraQueue = (cameraId: "cam1" | "cam2") => {
     const handleZoom = useCallback((zoom: ZoomValues) => {
         console.log(`[${cameraId}] Запрос зума:`, zoom);
         queueCommand({
-            type: 'zoom',           // Тип команды
-            data: { zoom },         // Данные - направление зума
-            timestamp: Date.now()   // Текущее время
+            type: 'zoom', // Тип команды
+            data: { zoom }, // Данные - направление зума
+            timestamp: Date.now() // Текущее время
         });
     }, [queueCommand]);
 
@@ -151,8 +183,8 @@ export const useCameraQueue = (cameraId: "cam1" | "cam2") => {
 
     // 📤 Возвращаем функции для использования в компоненте
     return {
-        handleZoom,              // Функция для зума
-        handleMove,              // Функция для движения  
-        isProcessing: isProcessing.current  // Флаг "выполняется команда"
+        handleZoom, // Функция для зума
+        handleMove, // Функция для движения 
+        isProcessing // Теперь реактивное состояние
     };
 };
