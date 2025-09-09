@@ -30,11 +30,18 @@ export const useCameraQueue = (cameraId: "cam1" | "cam2") => {
     // ✅ ИСПРАВЛЕНО: Правильная типизация для браузерного setTimeout
     const timeoutRef = useRef<number | null>(null);
 
+    const retryCount = useRef(0);
+
     // ГЛАВНАЯ ФУНКЦИЯ - обработчик очереди команд
     const processQueue = useCallback(async () => {
         // Используем processingRef для race condition защиты
         if (processingRef.current || commandQueue.current.length === 0) {
             return; // Ничего не делаем
+        }
+
+        if (retryCount.current > 10) {
+            console.error(`[${cameraId}] Max retries exceeded, stopping queue`);
+            return;
         }
 
         // 🔒 Блокируем параллельную обработку
